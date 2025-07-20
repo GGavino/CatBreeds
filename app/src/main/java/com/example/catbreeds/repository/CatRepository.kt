@@ -12,10 +12,10 @@ import javax.inject.Singleton
 class CatRepository @Inject constructor(
     private val apiService: CatApiService
 ) {
-    suspend fun getBreeds(limit: Int = 10): Result<List<CatBreed>> {
+    suspend fun getBreeds(limit: Int = 10, page: Int = 0): Result<List<CatBreed>> {
         return try {
-            // First, get the breeds
-            val breeds = apiService.getBreeds(limit = limit)
+            // First, get the breeds with pagination
+            val breeds = apiService.getBreeds(limit = limit, page = page)
 
             // Then fetch images for each breed that has a reference_image_id
             val breedsWithImages = coroutineScope {

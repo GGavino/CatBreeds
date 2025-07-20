@@ -83,6 +83,9 @@ dependencies {
     // Image Loading
     implementation(libs.coil.compose)
 
+    // Extended Icons
+    implementation(libs.material.icons.extended)
+
     // ViewModel
     implementation(libs.lifecycle.viewmodel.compose)
 
