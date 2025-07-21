@@ -41,4 +41,34 @@ class CatRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun searchBreeds(query: String): Result<List<CatBreed>> {
+        return try {
+            // Get search results
+            val breeds = apiService.searchBreeds(query)
+
+            // Fetch images for each breed that has a reference_image_id (same as regular breeds)
+            val breedsWithImages = coroutineScope {
+                breeds.map { breed ->
+                    async {
+                        if (breed.reference_image_id != null) {
+                            try {
+                                val image = apiService.getImage(breed.reference_image_id)
+                                breed.copy(image = image)
+                            } catch (e: Exception) {
+                                // If image fetch fails, return breed without image
+                                breed
+                            }
+                        } else {
+                            breed
+                        }
+                    }
+                }.awaitAll()
+            }
+
+            Result.success(breedsWithImages)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

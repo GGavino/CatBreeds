@@ -1,8 +1,9 @@
 package com.example.catbreeds.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,6 +35,7 @@ fun CatBreedsScreen(
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -47,6 +49,21 @@ fun CatBreedsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Search Bar
+            SearchBar(
+                query = searchQuery,
+                onQueryChange = { query ->
+                    searchQuery = query
+                    viewModel.searchBreeds(query)
+                },
+                onClearSearch = {
+                    searchQuery = ""
+                    viewModel.clearSearch()
+                },
+                isSearching = uiState.isSearching,
+                modifier = Modifier.padding(16.dp)
+            )
+
             when {
                 uiState.isLoading -> {
                     Box(
@@ -82,10 +99,27 @@ fun CatBreedsScreen(
                     }
                 }
 
+                uiState.breeds.isEmpty() && uiState.isSearching -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        Text(
+                            text = "No breeds found for \"${uiState.searchQuery}\"",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.align(Alignment.Center),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
                 else -> {
-                    LazyColumn(
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(uiState.breeds) { breed ->
@@ -95,19 +129,21 @@ fun CatBreedsScreen(
                 }
             }
 
-            // Pagination Controls
-            PaginationControls(
-                currentPage = uiState.currentPage,
-                totalPages = uiState.totalPages,
-                hasNextPage = uiState.hasNextPage,
-                hasPreviousPage = uiState.hasPreviousPage,
-                isLoading = uiState.isLoading,
-                onFirstPage = viewModel::goToFirstPage,
-                onPreviousPage = viewModel::goToPreviousPage,
-                onNextPage = viewModel::goToNextPage,
-                onLastPage = viewModel::goToLastPage,
-                onGoToPage = viewModel::goToPage
-            )
+            // Pagination Controls (only show when not searching)
+            if (!uiState.isSearching) {
+                PaginationControls(
+                    currentPage = uiState.currentPage,
+                    totalPages = uiState.totalPages,
+                    hasNextPage = uiState.hasNextPage,
+                    hasPreviousPage = uiState.hasPreviousPage,
+                    isLoading = uiState.isLoading,
+                    onFirstPage = viewModel::goToFirstPage,
+                    onPreviousPage = viewModel::goToPreviousPage,
+                    onNextPage = viewModel::goToNextPage,
+                    onLastPage = viewModel::goToLastPage,
+                    onGoToPage = viewModel::goToPage
+                )
+            }
         }
     }
 }
@@ -304,19 +340,59 @@ fun PaginationControls(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClearSearch: () -> Unit,
+    isSearching: Boolean,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier.fillMaxWidth(),
+        placeholder = { Text("Search cat breeds...") },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = "Search"
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty() || isSearching) {
+                IconButton(onClick = onClearSearch) {
+                    Icon(
+                        imageVector = Icons.Filled.Clear,
+                        contentDescription = "Clear search"
+                    )
+                }
+            }
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.Search
+        ),
+        keyboardActions = KeyboardActions(
+            onSearch = { /* Search is triggered on text change */ }
+        )
+    )
+}
+
 @Composable
 fun BreedItem(breed: CatBreed) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp),
+            .height(180.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Cat Image
             AsyncImage(
@@ -326,45 +402,23 @@ fun BreedItem(breed: CatBreed) {
                     .build(),
                 contentDescription = "Image of ${breed.name}",
                 modifier = Modifier
-                    .size(80.dp)
+                    .size(120.dp)
                     .clip(RoundedCornerShape(8.dp)),
                 contentScale = ContentScale.Crop
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Breed Info
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = breed.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                breed.origin?.let { origin ->
-                    Text(
-                        text = "Origin: $origin",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-
-                breed.temperament?.let { temperament ->
-                    Text(
-                        text = temperament,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-            }
+            // Breed Name
+            Text(
+                text = breed.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

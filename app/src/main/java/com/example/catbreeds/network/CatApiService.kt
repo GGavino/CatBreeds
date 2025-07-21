@@ -17,4 +17,9 @@ interface CatApiService {
     suspend fun getImage(
         @Path("image_id") imageId: String
     ): CatImage
+
+    @GET("breeds/search")
+    suspend fun searchBreeds(
+        @Query("q") query: String
+    ): List<CatBreed>
 }

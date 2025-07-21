@@ -42,7 +42,8 @@ class MainViewModel @Inject constructor(
                         currentPage = page,
                         totalPages = totalPages,
                         hasNextPage = page < totalPages - 1,
-                        hasPreviousPage = page > 0
+                        hasPreviousPage = page > 0,
+                        isSearching = false
                     )
                 },
                 onFailure = { exception ->
@@ -54,6 +55,46 @@ class MainViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    fun searchBreeds(query: String) {
+        if (query.isBlank()) {
+            loadBreeds()
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+
+            repository.searchBreeds(query).fold(
+                onSuccess = { breeds ->
+                    _uiState.value = _uiState.value.copy(
+                        breeds = breeds,
+                        isLoading = false,
+                        error = null,
+                        searchQuery = query,
+                        isSearching = true,
+                        // Reset pagination for search results
+                        currentPage = 0,
+                        totalPages = 1,
+                        hasNextPage = false,
+                        hasPreviousPage = false
+                    )
+                },
+                onFailure = { exception ->
+                    _uiState.value = _uiState.value.copy(
+                        breeds = emptyList(),
+                        isLoading = false,
+                        error = exception.message ?: "Unknown error occurred"
+                    )
+                }
+            )
+        }
+    }
+
+    fun clearSearch() {
+        _uiState.value = _uiState.value.copy(searchQuery = "", isSearching = false)
+        loadBreeds()
     }
 
     fun goToFirstPage() {
@@ -91,7 +132,12 @@ class MainViewModel @Inject constructor(
     }
 
     fun retry() {
-        loadBreeds(_uiState.value.currentPage)
+        val currentState = _uiState.value
+        if (currentState.isSearching) {
+            searchBreeds(currentState.searchQuery)
+        } else {
+            loadBreeds(currentState.currentPage)
+        }
     }
 }
 
@@ -102,5 +148,7 @@ data class MainUiState(
     val currentPage: Int = 0,
     val totalPages: Int = 1,
     val hasNextPage: Boolean = false,
-    val hasPreviousPage: Boolean = false
+    val hasPreviousPage: Boolean = false,
+    val searchQuery: String = "",
+    val isSearching: Boolean = false
 )
