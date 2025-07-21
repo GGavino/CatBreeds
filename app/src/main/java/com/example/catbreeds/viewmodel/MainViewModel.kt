@@ -21,20 +21,55 @@ class MainViewModel @Inject constructor(
 
     companion object {
         private const val PAGE_SIZE = 10
-        private const val TOTAL_BREEDS = 67 // Cat API has approximately 67 breeds
     }
 
+    private var totalBreedsFromApi: Int? = null
+
     init {
-        loadBreeds()
+        initializeApp()
+    }
+
+    private fun initializeApp() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+
+            repository.initializeAppData().fold(
+                onSuccess = { totalCount ->
+                    totalBreedsFromApi = totalCount
+                    loadBreeds(0)
+                },
+                onFailure = {
+                    checkCacheStatus()
+                    loadBreeds(0)
+                }
+            )
+        }
+    }
+
+    private fun checkCacheStatus() {
+        viewModelScope.launch {
+            val hasCachedData = repository.hasCachedData()
+            _uiState.value = _uiState.value.copy(hasCachedData = hasCachedData)
+        }
     }
 
     private fun loadBreeds(page: Int = 0) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
+            val isOnline = repository.isOnline()
+            val totalBreedsCount = if (isOnline && totalBreedsFromApi != null) {
+                totalBreedsFromApi!!
+            } else {
+                repository.getTotalBreedsCount().getOrElse {
+                    repository.getCachedBreedsCount()
+                }
+            }
+
             repository.getBreeds(limit = PAGE_SIZE, page = page).fold(
                 onSuccess = { breeds ->
-                    val totalPages = (TOTAL_BREEDS + PAGE_SIZE - 1) / PAGE_SIZE // Ceiling division
+                    val totalPages = (totalBreedsCount + PAGE_SIZE - 1) / PAGE_SIZE
+
                     _uiState.value = _uiState.value.copy(
                         breeds = breeds,
                         isLoading = false,
@@ -43,14 +78,27 @@ class MainViewModel @Inject constructor(
                         totalPages = totalPages,
                         hasNextPage = page < totalPages - 1,
                         hasPreviousPage = page > 0,
-                        isSearching = false
+                        isSearching = false,
+                        isOnline = isOnline,
+                        isOfflineData = !isOnline && breeds.isNotEmpty(),
+                        totalBreedsCount = totalBreedsCount
                     )
+                    checkCacheStatus()
                 },
                 onFailure = { exception ->
+                    val isNetworkError = isNetworkError(exception.message)
+                    val totalPages = (totalBreedsCount + PAGE_SIZE - 1) / PAGE_SIZE
+
                     _uiState.value = _uiState.value.copy(
                         breeds = emptyList(),
                         isLoading = false,
-                        error = exception.message ?: "Unknown error occurred"
+                        error = exception.message ?: "Unknown error occurred",
+                        totalPages = totalPages,
+                        hasNextPage = page < totalPages - 1,
+                        hasPreviousPage = page > 0,
+                        isOnline = isOnline,
+                        isOfflineData = isNetworkError && _uiState.value.hasCachedData,
+                        totalBreedsCount = totalBreedsCount
                     )
                 }
             )
@@ -65,6 +113,7 @@ class MainViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val isOnline = repository.isOnline()
 
             repository.searchBreeds(query).fold(
                 onSuccess = { breeds ->
@@ -74,18 +123,25 @@ class MainViewModel @Inject constructor(
                         error = null,
                         searchQuery = query,
                         isSearching = true,
-                        // Reset pagination for search results
                         currentPage = 0,
                         totalPages = 1,
                         hasNextPage = false,
-                        hasPreviousPage = false
+                        hasPreviousPage = false,
+                        isOnline = isOnline,
+                        isOfflineData = !isOnline && breeds.isNotEmpty()
                     )
+                    checkCacheStatus()
                 },
                 onFailure = { exception ->
+                    val isNetworkError = isNetworkError(exception.message)
                     _uiState.value = _uiState.value.copy(
                         breeds = emptyList(),
                         isLoading = false,
-                        error = exception.message ?: "Unknown error occurred"
+                        error = exception.message ?: "Unknown error occurred",
+                        searchQuery = query,
+                        isSearching = true,
+                        isOnline = isOnline,
+                        isOfflineData = isNetworkError && _uiState.value.hasCachedData
                     )
                 }
             )
@@ -139,6 +195,35 @@ class MainViewModel @Inject constructor(
             loadBreeds(currentState.currentPage)
         }
     }
+
+    fun refreshData() {
+        initializeApp()
+    }
+
+    fun clearCache() {
+        viewModelScope.launch {
+            repository.clearCache().fold(
+                onSuccess = {
+                    totalBreedsFromApi = null
+                    checkCacheStatus()
+                    initializeApp()
+                },
+                onFailure = { exception ->
+                    _uiState.value = _uiState.value.copy(
+                        error = "Failed to clear cache: ${exception.message}"
+                    )
+                }
+            )
+        }
+    }
+
+    // Checks for network-related error patterns
+    private fun isNetworkError(errorMessage: String?): Boolean {
+        return errorMessage?.contains("network", ignoreCase = true) == true ||
+                errorMessage?.contains("connection", ignoreCase = true) == true ||
+                errorMessage?.contains("timeout", ignoreCase = true) == true ||
+                errorMessage?.contains("unreachable", ignoreCase = true) == true
+    }
 }
 
 data class MainUiState(
@@ -150,5 +235,9 @@ data class MainUiState(
     val hasNextPage: Boolean = false,
     val hasPreviousPage: Boolean = false,
     val searchQuery: String = "",
-    val isSearching: Boolean = false
+    val isSearching: Boolean = false,
+    val hasCachedData: Boolean = false,
+    val isOfflineData: Boolean = false,
+    val isOnline: Boolean = true,
+    val totalBreedsCount: Int = 0
 )
