@@ -36,4 +36,13 @@ interface CatBreedDao {
 
     @Query("SELECT MAX(lastUpdated) FROM cat_breeds")
     suspend fun getLastUpdateTime(): Long?
+
+    @Query("UPDATE cat_breeds SET isFavorite = :isFavorite WHERE id = :breedId")
+    suspend fun updateFavoriteStatus(breedId: String, isFavorite: Boolean)
+
+    @Query("SELECT * FROM cat_breeds WHERE isFavorite = 1 ORDER BY name ASC")
+    fun getFavoriteBreeds(): Flow<List<CatBreedEntity>>
+
+    @Query("SELECT COUNT(*) FROM cat_breeds WHERE isFavorite = 1")
+    suspend fun getFavoriteBreedsCount(): Int
 }

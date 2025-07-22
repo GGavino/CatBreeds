@@ -217,6 +217,28 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun toggleFavoriteStatus(breedId: String) {
+        viewModelScope.launch {
+            val result = repository.toggleFavoriteStatus(breedId)
+
+            if (result.isSuccess) {
+                // Update local state immediately for better UX
+                val currentBreeds = _uiState.value.breeds
+                val updatedBreeds = currentBreeds.map { breed ->
+                    if (breed.id == breedId) {
+                        breed.copy(isFavorite = !breed.isFavorite)
+                    } else {
+                        breed
+                    }
+                }
+                _uiState.value = _uiState.value.copy(breeds = updatedBreeds)
+            } else {
+                val error = result.exceptionOrNull()?.message ?: "Failed to update favorite status"
+                _uiState.value = _uiState.value.copy(error = error)
+            }
+        }
+    }
+
     // Checks for network-related error patterns
     private fun isNetworkError(errorMessage: String?): Boolean {
         return errorMessage?.contains("network", ignoreCase = true) == true ||

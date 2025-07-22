@@ -1,5 +1,6 @@
 package com.example.catbreeds.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -10,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,11 +30,13 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.catbreeds.model.CatBreed
 import com.example.catbreeds.viewmodel.MainViewModel
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatBreedsScreen(
-    viewModel: MainViewModel = hiltViewModel()
+    viewModel: MainViewModel = hiltViewModel(),
+    onBreedClick: (CatBreed) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
@@ -123,13 +127,17 @@ fun CatBreedsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(uiState.breeds) { breed ->
-                            BreedItem(breed = breed)
+                            BreedItem(
+                                breed = breed,
+                                onClick = { onBreedClick(breed) },
+                                onFavoriteClick = { viewModel.toggleFavoriteStatus(it.id) }
+                            )
                         }
                     }
                 }
             }
 
-            // Pagination Controls (only show when not searching)
+            // Hide pagination when searching as results are not paginated
             if (!uiState.isSearching) {
                 PaginationControls(
                     currentPage = uiState.currentPage,
@@ -178,7 +186,6 @@ fun PaginationControls(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // First and Previous buttons
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -207,7 +214,6 @@ fun PaginationControls(
                 }
             }
 
-            // Page Info and Go To Page button
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -231,7 +237,6 @@ fun PaginationControls(
                 }
             }
 
-            // Next and Last buttons
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -286,6 +291,7 @@ fun PaginationControls(
                     OutlinedTextField(
                         value = pageInput,
                         onValueChange = {
+                            // Restrict input to digits only and limit length
                             if (it.all { char -> char.isDigit() } && it.length <= 3) {
                                 pageInput = it
                             }
@@ -381,44 +387,81 @@ fun SearchBar(
 }
 
 @Composable
-fun BreedItem(breed: CatBreed) {
+fun BreedItem(
+    breed: CatBreed,
+    onClick: () -> Unit,
+    onFavoriteClick: (CatBreed) -> Unit = {}
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp),
+            .height(180.dp)
+            .clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Cat Image
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(breed.image?.url)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "Image of ${breed.name}",
+            Column(
                 modifier = Modifier
-                    .size(120.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
-            )
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Cat Image
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(breed.image?.url)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Image of ${breed.name}",
+                    modifier = Modifier
+                        .size(120.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // Breed Name
-            Text(
-                text = breed.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+                // Breed Name
+                Text(
+                    text = breed.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // Clickable favorite star with visual state based on favorite status
+            IconButton(
+                onClick = { onFavoriteClick(breed) },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(32.dp)
+            ) {
+                Icon(
+                    imageVector = if (breed.isFavorite) {
+                        Icons.Filled.Star
+                    } else {
+                        Icons.Outlined.StarBorder
+                    },
+                    contentDescription = if (breed.isFavorite) {
+                        "Remove from favorites"
+                    } else {
+                        "Add to favorites"
+                    },
+                    tint = if (breed.isFavorite) {
+                        Color(0xFFFFD700) // Golden yellow for favorited
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    },
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }

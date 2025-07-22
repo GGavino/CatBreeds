@@ -3,6 +3,7 @@ package com.example.catbreeds.repository
 import com.example.catbreeds.data.local.dao.CatBreedDao
 import com.example.catbreeds.data.mapper.toDomainModel
 import com.example.catbreeds.data.mapper.toDomainModelList
+import com.example.catbreeds.data.mapper.toEntity
 import com.example.catbreeds.data.mapper.toEntityList
 import com.example.catbreeds.model.CatBreed
 import com.example.catbreeds.network.CatApiService
@@ -95,8 +96,13 @@ class CatRepository @Inject constructor(
                 }.awaitAll()
             }
 
+            // Cache the breeds (this preserves favorite status)
             cacheBreeds(breedsWithImages)
-            Result.success(breedsWithImages)
+
+            // Return the cached breeds with correct favorite status, not the API breeds
+            val offset = page * limit
+            val cachedBreeds = catBreedDao.getBreedsPaginated(limit, offset)
+            Result.success(cachedBreeds.toDomainModelList())
 
         } catch (e: Exception) {
             try {
@@ -130,8 +136,12 @@ class CatRepository @Inject constructor(
                 }.awaitAll()
             }
 
+            // Cache the breeds (this preserves favorite status)
             cacheBreeds(breedsWithImages)
-            Result.success(breedsWithImages)
+
+            // Return the cached breeds with correct favorite status
+            val searchResults = catBreedDao.searchBreeds(query).first()
+            Result.success(searchResults.toDomainModelList())
 
         } catch (e: Exception) {
             try {
@@ -147,13 +157,29 @@ class CatRepository @Inject constructor(
         return catBreedDao.getAllBreeds().map { it.toDomainModelList() }
     }
 
-    suspend fun getBreedById(breedId: String): CatBreed? {
-        return catBreedDao.getBreedById(breedId)?.toDomainModel()
+    suspend fun getBreedById(breedId: String): Result<CatBreed> {
+        return try {
+            val breed = catBreedDao.getBreedById(breedId)?.toDomainModel()
+            if (breed != null) {
+                Result.success(breed)
+            } else {
+                Result.failure(Exception("Breed not found with ID: $breedId"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    // Uses REPLACE strategy - updates existing breeds or inserts new ones
+    // Uses REPLACE strategy - updates existing breeds or inserts new ones while preserving favorite status
     private suspend fun cacheBreeds(breeds: List<CatBreed>) {
-        val entities = breeds.toEntityList()
+        val entities = breeds.map { breed ->
+            // Check if this breed already exists in the database
+            val existingBreed = catBreedDao.getBreedById(breed.id)
+            val preservedFavoriteStatus = existingBreed?.isFavorite ?: false
+
+            // Convert to entity while preserving the favorite status
+            breed.copy(isFavorite = preservedFavoriteStatus).toEntity()
+        }
         catBreedDao.insertBreeds(entities)
     }
 
@@ -172,5 +198,29 @@ class CatRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    // Favorite operations
+    suspend fun toggleFavoriteStatus(breedId: String): Result<Unit> {
+        return try {
+            val currentBreed = catBreedDao.getBreedById(breedId)
+            if (currentBreed != null) {
+                val newFavoriteStatus = !currentBreed.isFavorite
+                catBreedDao.updateFavoriteStatus(breedId, newFavoriteStatus)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Breed not found with ID: $breedId"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    fun getFavoriteBreeds(): Flow<List<CatBreed>> {
+        return catBreedDao.getFavoriteBreeds().map { it.toDomainModelList() }
+    }
+
+    suspend fun getFavoriteBreedsCount(): Int {
+        return catBreedDao.getFavoriteBreedsCount()
     }
 }

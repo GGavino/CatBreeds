@@ -7,7 +7,7 @@ import com.example.catbreeds.data.local.entity.CatBreedEntity
 
 @Database(
     entities = [CatBreedEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class CatBreedsDatabase : RoomDatabase() {

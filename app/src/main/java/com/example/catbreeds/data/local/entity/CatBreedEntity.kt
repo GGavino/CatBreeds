@@ -17,5 +17,6 @@ data class CatBreedEntity(
     val imageWidth: Int?,
     val imageHeight: Int?,
     val imageMimeType: String?,
+    val isFavorite: Boolean = false,
     val lastUpdated: Long = System.currentTimeMillis()
 )

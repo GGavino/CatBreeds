@@ -16,7 +16,8 @@ fun CatBreed.toEntity(): CatBreedEntity {
         imageUrl = this.image?.url,
         imageWidth = this.image?.width,
         imageHeight = this.image?.height,
-        imageMimeType = this.image?.mime_type
+        imageMimeType = this.image?.mime_type,
+        isFavorite = this.isFavorite
     )
 }
 
@@ -39,7 +40,8 @@ fun CatBreedEntity.toDomainModel(): CatBreed {
         temperament = this.temperament,
         life_span = this.lifeSpan,
         reference_image_id = this.referenceImageId,
-        image = image
+        image = image,
+        isFavorite = this.isFavorite
     )
 }
 

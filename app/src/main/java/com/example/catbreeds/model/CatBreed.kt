@@ -16,5 +16,6 @@ data class CatBreed(
     val temperament: String?,
     val life_span: String?,
     val reference_image_id: String?,
-    val image: CatImage? = null // This field will be populated later when fetching the image
+    val image: CatImage? = null, // This field will be populated later when fetching the image
+    val isFavorite: Boolean = false
 )
