@@ -41,117 +41,107 @@ fun CatBreedsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Cat Breeds") }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Search Bar
-            SearchBar(
-                query = searchQuery,
-                onQueryChange = { query ->
-                    searchQuery = query
-                    viewModel.searchBreeds(query)
-                },
-                onClearSearch = {
-                    searchQuery = ""
-                    viewModel.clearSearch()
-                },
-                isSearching = uiState.isSearching,
-                modifier = Modifier.padding(16.dp)
-            )
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Search Bar
+        SearchBar(
+            query = searchQuery,
+            onQueryChange = { query ->
+                searchQuery = query
+                viewModel.searchBreeds(query)
+            },
+            onClearSearch = {
+                searchQuery = ""
+                viewModel.clearSearch()
+            },
+            isSearching = uiState.isSearching,
+            modifier = Modifier.padding(16.dp)
+        )
 
-            when {
-                uiState.isLoading -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
+        when {
+            uiState.isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
+            }
 
-                uiState.error != null -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    ) {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Error: ${uiState.error}",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(16.dp)
-                            )
-                            Button(onClick = { viewModel.retry() }) {
-                                Text("Retry")
-                            }
-                        }
-                    }
-                }
-
-                uiState.breeds.isEmpty() && uiState.isSearching -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
+            uiState.error != null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "No breeds found for \"${uiState.searchQuery}\"",
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.align(Alignment.Center),
-                            textAlign = TextAlign.Center
+                            text = "Error: ${uiState.error}",
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(16.dp)
                         )
-                    }
-                }
-
-                else -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(uiState.breeds) { breed ->
-                            BreedItem(
-                                breed = breed,
-                                onClick = { onBreedClick(breed) },
-                                onFavoriteClick = { viewModel.toggleFavoriteStatus(it.id) }
-                            )
+                        Button(onClick = { viewModel.retry() }) {
+                            Text("Retry")
                         }
                     }
                 }
             }
 
-            // Hide pagination when searching as results are not paginated
-            if (!uiState.isSearching) {
-                PaginationControls(
-                    currentPage = uiState.currentPage,
-                    totalPages = uiState.totalPages,
-                    hasNextPage = uiState.hasNextPage,
-                    hasPreviousPage = uiState.hasPreviousPage,
-                    isLoading = uiState.isLoading,
-                    onFirstPage = viewModel::goToFirstPage,
-                    onPreviousPage = viewModel::goToPreviousPage,
-                    onNextPage = viewModel::goToNextPage,
-                    onLastPage = viewModel::goToLastPage,
-                    onGoToPage = viewModel::goToPage
-                )
+            uiState.breeds.isEmpty() && uiState.isSearching -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    Text(
+                        text = "No breeds found for \"${uiState.searchQuery}\"",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.align(Alignment.Center),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
+
+            else -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.breeds) { breed ->
+                        BreedItem(
+                            breed = breed,
+                            onClick = { onBreedClick(breed) },
+                            onFavoriteClick = { viewModel.toggleFavoriteStatus(it.id) }
+                        )
+                    }
+                }
+            }
+        }
+
+        // Hide pagination when searching as results are not paginated
+        if (!uiState.isSearching) {
+            PaginationControls(
+                currentPage = uiState.currentPage,
+                totalPages = uiState.totalPages,
+                hasNextPage = uiState.hasNextPage,
+                hasPreviousPage = uiState.hasPreviousPage,
+                isLoading = uiState.isLoading,
+                onFirstPage = viewModel::goToFirstPage,
+                onPreviousPage = viewModel::goToPreviousPage,
+                onNextPage = viewModel::goToNextPage,
+                onLastPage = viewModel::goToLastPage,
+                onGoToPage = viewModel::goToPage
+            )
         }
     }
 }

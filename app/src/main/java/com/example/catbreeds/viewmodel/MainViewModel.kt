@@ -246,6 +246,17 @@ class MainViewModel @Inject constructor(
                 errorMessage?.contains("timeout", ignoreCase = true) == true ||
                 errorMessage?.contains("unreachable", ignoreCase = true) == true
     }
+
+    fun refreshBreedsData() {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState.isSearching) {
+                searchBreeds(currentState.searchQuery)
+            } else {
+                loadBreeds(currentState.currentPage)
+            }
+        }
+    }
 }
 
 data class MainUiState(
